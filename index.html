@@ -1,0 +1,30 @@
+<html>
+    <head>
+        <title>Connection Test</title>
+    </head>
+    <body>
+        <p>Connection String:</p>
+        <p><li>mysql: &lt;user&gt;:&lt;pass&gt;@tcp(&lt;host:port&gt;)/?tls=custom</li></p>
+        <p><li>postgres: host=&lt;host&gt; port=&lt;port&gt; user=&lt;user&gt; password=&lt;pass&gt; dbname=template1 sslmode=require</li></p>
+        <input id="type" type="text" placeholder="type"> <input id="connection" type="text" placeholder="<ConnectionString>" style="width: 50em;">
+        <input type="submit" value="test" onclick="test()">
+        <div id="log"></div>
+    </body>
+    <script>
+        function test() {
+            let type = document.getElementById("type").value
+            let connection = document.getElementById("connection").value
+            
+            let xml = new XMLHttpRequest()
+            xml.onreadystatechange = function() {
+                if (xml.readyState == XMLHttpRequest.DONE) {
+                    document.getElementById("log").innerHTML += `<br>${xml.status}: ${xml.responseText}`
+                }
+            }
+
+            xml.open("POST", "/")
+            xml.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+            xml.send(`type=${encodeURIComponent(type)}&connection=${encodeURIComponent(connection)}`)
+        }
+    </script>
+</html>
