@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 
+	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/gin-gonic/gin"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
