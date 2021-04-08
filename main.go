@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/keyvault/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/auth"
@@ -20,8 +21,8 @@ func get(c *gin.Context) {
 }
 
 func post(c *gin.Context) {
-	tp := c.PostForm("type")
-	conn := c.PostForm("connection")
+	tp := strings.TrimSpace(c.PostForm("type"))
+	conn := strings.TrimSpace(c.PostForm("connection"))
 
 	if tp == "keyvault" {
 		keyvaultConnect(conn, c)
