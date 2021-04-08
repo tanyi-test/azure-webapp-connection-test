@@ -1,0 +1,21 @@
+name: docker
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          docker login -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} cupertinotest.azurecr.io
+          docker build -t cupertinotest.azurecr.io/test .
+          docker push cupertinotest.azurecr.io/test
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
