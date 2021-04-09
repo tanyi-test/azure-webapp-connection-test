@@ -2,11 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/keyvault/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/auth"
@@ -26,6 +33,8 @@ func post(c *gin.Context) {
 
 	if tp == "keyvault" {
 		keyvaultConnect(conn, c)
+	} else if tp == "cosmos" {
+		cosmosDBConnect(conn, c)
 	} else {
 		dbConnect(tp, conn, c)
 	}
@@ -49,11 +58,82 @@ func keyvaultConnect(name string, c *gin.Context) {
 	}
 
 	for _, secret := range secrets.Values() {
-		c.String(200, "First Secret ID: %s", *secret.ID)
+		c.String(200, "KeyVault %s: First Secret ID: %s", name, *secret.ID)
 		return
 	}
 
-	c.String(202, "Not Secret Found")
+	c.String(204, "KeyVault %s: Secret Not Found", name)
+}
+
+func cosmosDBConnect(conn string, c *gin.Context) {
+	endpoint := ""
+	key := ""
+	for _, s := range strings.Split(conn, ";") {
+		prefix := "AccountEndpoint="
+		if strings.HasPrefix(s, prefix) {
+			endpoint = s[len(prefix):]
+		}
+		prefix = "AccountKey="
+		if strings.HasPrefix(s, prefix) {
+			key = s[len(prefix):]
+		}
+	}
+	if endpoint == "" {
+		c.String(400, "Unknown AccountEndpoint")
+		return
+	}
+	if key == "" {
+		c.String(400, "Unknown AccountKey")
+		return
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		c.String(500, "Parse Endpoint Error: %s", err.Error())
+		return
+	}
+
+	verb := "GET"
+	resourceType := "dbs"
+	resourceId := ""
+	u.Path = "/dbs"
+	date := time.Now().UTC().Format(http.TimeFormat)
+
+	keyBytes, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		c.String(500, "Master Key Decode Error: %s", err.Error())
+		return
+	}
+
+	sha256Hash := hmac.New(sha256.New, keyBytes)
+	body := fmt.Sprintf("%s\n%s\n%s\n%s\n\n", strings.ToLower(verb), strings.ToLower(resourceType), resourceId, strings.ToLower(date))
+
+	n, err := sha256Hash.Write([]byte(body))
+	if n < len(body) || err != nil {
+		c.String(500, "Write Hash %d, body size %d, Error: %s", n, len(body), err.Error())
+		return
+	}
+
+	auth := fmt.Sprintf("type=master&ver=1.0&sig=%s", base64.StdEncoding.EncodeToString(sha256Hash.Sum(nil)))
+	auth = url.QueryEscape(auth)
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	req, _ := http.NewRequest(verb, u.String(), nil)
+	req.Header.Add("Authorization", auth)
+	req.Header.Add("x-ms-date", date)
+	req.Header.Add("x-ms-version", "2018-12-31")
+	resp, err := client.Do(req)
+	if err != nil {
+		c.String(500, "Request Cosmos DB Error: %s", err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		c.String(500, "Read Response Error: %s", err.Error())
+		return
+	}
+	c.String(resp.StatusCode, "List Databases Result: %s", string(b))
 }
 
 func dbConnect(tp, conn string, c *gin.Context) {
