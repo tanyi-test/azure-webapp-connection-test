@@ -35,10 +35,28 @@ func post(c *gin.Context) {
 		keyvaultConnect(conn, c)
 	} else if tp == "cosmos" {
 		cosmosDBConnect(conn, c)
+	} else if tp == "insights" {
+		insightsConnect(conn, c)
 	} else {
 		dbConnect(tp, conn, c)
 	}
 
+}
+
+func request(req *http.Request, c *gin.Context) {
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.String(500, "Request Error: %s", err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		c.String(500, "Read Body Error: %s", err.Error())
+		return
+	}
+	c.String(resp.StatusCode, "Body: %s", string(b))
 }
 
 func keyvaultConnect(name string, c *gin.Context) {
@@ -117,23 +135,27 @@ func cosmosDBConnect(conn string, c *gin.Context) {
 	auth := fmt.Sprintf("type=master&ver=1.0&sig=%s", base64.StdEncoding.EncodeToString(sha256Hash.Sum(nil)))
 	auth = url.QueryEscape(auth)
 
-	client := &http.Client{Timeout: 20 * time.Second}
 	req, _ := http.NewRequest(verb, u.String(), nil)
 	req.Header.Add("Authorization", auth)
 	req.Header.Add("x-ms-date", date)
 	req.Header.Add("x-ms-version", "2018-12-31")
-	resp, err := client.Do(req)
-	if err != nil {
-		c.String(500, "Request Cosmos DB Error: %s", err.Error())
+
+	request(req, c)
+}
+
+func insightsConnect(conn string, c *gin.Context) {
+	conns := strings.Split(conn, ";")
+	if len(conn) < 2 {
+		c.String(400, "Unexpected Connection String Format, should be \"<app-id>;<app-key>\"")
 		return
 	}
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		c.String(500, "Read Response Error: %s", err.Error())
-		return
-	}
-	c.String(resp.StatusCode, "List Databases Result: %s", string(b))
+	appId := conns[0]
+	appKey := strings.Join(conns[1:], ";")
+
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://api.applicationinsights.io/v1/apps/%s/metrics/requests/duration", appId), nil)
+	req.Header.Add("X-Api-Key", appKey)
+
+	request(req, c)
 }
 
 func dbConnect(tp, conn string, c *gin.Context) {
