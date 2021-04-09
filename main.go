@@ -18,6 +18,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/keyvault/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/auth"
+	"github.com/Azure/azure-storage-blob-go/azblob"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/gin-gonic/gin"
 	"github.com/go-sql-driver/mysql"
@@ -38,6 +39,8 @@ func post(c *gin.Context) {
 		keyvaultConnect(conn, c)
 	} else if tp == "cosmos" {
 		cosmosDBConnect(conn, c)
+	} else if tp == "storage" {
+		storageConnect(conn, c)
 	} else if tp == "insights" {
 		insightsConnect(conn, c)
 	} else {
@@ -104,14 +107,8 @@ func cosmosDBConnect(conn string, c *gin.Context) {
 	endpoint := ""
 	key := ""
 	for _, s := range strings.Split(conn, ";") {
-		prefix := "AccountEndpoint="
-		if strings.HasPrefix(s, prefix) {
-			endpoint = s[len(prefix):]
-		}
-		prefix = "AccountKey="
-		if strings.HasPrefix(s, prefix) {
-			key = s[len(prefix):]
-		}
+		endpoint = trimPrefix(s, "AccountEndpoint=")
+		key = trimPrefix(s, "AccountKey=")
 	}
 	if endpoint == "" {
 		c.String(400, "Unknown AccountEndpoint")
@@ -158,6 +155,49 @@ func cosmosDBConnect(conn string, c *gin.Context) {
 	req.Header.Add("x-ms-version", "2018-12-31")
 
 	request(req, c)
+}
+
+func trimPrefix(s, prefix string) string {
+	if strings.HasPrefix(s, prefix) {
+		return s[len(prefix):]
+	}
+	return ""
+}
+
+func storageConnect(conn string, c *gin.Context) {
+	name := ""
+	key := ""
+	for _, s := range strings.Split(conn, ";") {
+		name = trimPrefix(s, "AccountName=")
+		key = trimPrefix(s, "AccountKey=")
+	}
+	if name == "" {
+		c.String(400, "Unknown AccountName")
+		return
+	}
+	if key == "" {
+		c.String(400, "Unknown AccountKey")
+		return
+	}
+
+	credential, err := azblob.NewSharedKeyCredential(name, key)
+	if err != nil {
+		c.String(500, "Invalid Credential: %s", err.Error())
+		return
+	}
+
+	u, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net/", name))
+	if err != nil {
+		c.String(500, "URL Parse Error: %s", err.Error())
+		return
+	}
+	blob := azblob.NewBlobURL(*u, azblob.NewPipeline(credential, azblob.PipelineOptions{}))
+	info, err := blob.GetAccountInfo(context.Background())
+	if err != nil {
+		c.String(500, "Get Account %s Info Error: %s", err.Error())
+		return
+	}
+	c.String(200, "Account %s Info: %s", name, info.SkuName())
 }
 
 func insightsConnect(conn string, c *gin.Context) {
