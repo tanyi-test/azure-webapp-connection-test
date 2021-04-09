@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -31,7 +32,9 @@ func post(c *gin.Context) {
 	tp := strings.TrimSpace(c.PostForm("type"))
 	conn := strings.TrimSpace(c.PostForm("connection"))
 
-	if tp == "keyvault" {
+	if tp == "nslookup" {
+		nslookup(conn, c)
+	} else if tp == "keyvault" {
 		keyvaultConnect(conn, c)
 	} else if tp == "cosmos" {
 		cosmosDBConnect(conn, c)
@@ -57,6 +60,20 @@ func request(req *http.Request, c *gin.Context) {
 		return
 	}
 	c.String(resp.StatusCode, "Body: %s", string(b))
+}
+
+func nslookup(name string, c *gin.Context) {
+	ips, err := net.LookupIP(name)
+	if err != nil {
+		c.String(500, "Lookup Error: %s", err.Error())
+		return
+	}
+
+	allIP := ""
+	for _, ip := range ips {
+		allIP += ip.String() + " "
+	}
+	c.String(200, "LookupIP: %s -> %s", name, allIP)
 }
 
 func keyvaultConnect(name string, c *gin.Context) {
