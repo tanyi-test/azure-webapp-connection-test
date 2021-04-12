@@ -196,7 +196,7 @@ func storageConnect(conn string, c *gin.Context) {
 	blob := azblob.NewBlobURL(*u, azblob.NewPipeline(credential, azblob.PipelineOptions{}))
 	info, err := blob.GetAccountInfo(context.Background())
 	if err != nil {
-		c.String(500, "Get Account %s Info Error: %s", err.Error())
+		c.String(500, "Get Account %s Info Error: %s", name, err.Error())
 		return
 	}
 	c.String(200, "Account %s Info: %s", name, info.SkuName())
