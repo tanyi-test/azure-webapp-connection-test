@@ -27,7 +27,7 @@
                 }
             }
 
-            xml.open("POST", "/")
+            xml.open("POST", window.location.pathname)
             xml.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
             xml.send(`type=${encodeURIComponent(type)}&connection=${encodeURIComponent(connection)}`)
         }
