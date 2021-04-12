@@ -107,8 +107,8 @@ func cosmosDBConnect(conn string, c *gin.Context) {
 	endpoint := ""
 	key := ""
 	for _, s := range strings.Split(conn, ";") {
-		endpoint = trimPrefix(s, "AccountEndpoint=")
-		key = trimPrefix(s, "AccountKey=")
+		trimPrefix(s, "AccountEndpoint=", &endpoint)
+		trimPrefix(s, "AccountKey=", &key)
 	}
 	if endpoint == "" {
 		c.String(400, "Unknown AccountEndpoint")
@@ -157,19 +157,18 @@ func cosmosDBConnect(conn string, c *gin.Context) {
 	request(req, c)
 }
 
-func trimPrefix(s, prefix string) string {
+func trimPrefix(s, prefix string, out *string) {
 	if strings.HasPrefix(s, prefix) {
-		return s[len(prefix):]
+		*out = s[len(prefix):]
 	}
-	return ""
 }
 
 func storageConnect(conn string, c *gin.Context) {
 	name := ""
 	key := ""
 	for _, s := range strings.Split(conn, ";") {
-		name = trimPrefix(s, "AccountName=")
-		key = trimPrefix(s, "AccountKey=")
+		trimPrefix(s, "AccountName=", &name)
+		trimPrefix(s, "AccountKey=", &key)
 	}
 	if name == "" {
 		c.String(400, "Unknown AccountName")
