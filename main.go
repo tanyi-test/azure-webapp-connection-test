@@ -35,6 +35,9 @@ func post(c *gin.Context) {
 
 	if tp == "nslookup" {
 		nslookup(conn, c)
+	} else if tp == "get" {
+		req, _ := http.NewRequest("GET", conn, nil)
+		request(req, c)
 	} else if tp == "keyvault" {
 		keyvaultConnect(conn, c)
 	} else if tp == "cosmos" {
